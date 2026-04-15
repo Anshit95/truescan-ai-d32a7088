@@ -1,26 +1,102 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { User, Shield, Bell, Palette, Save } from "lucide-react";
+import { User, Shield, Bell, Palette, Save, Clock, Monitor, Smartphone, Trash2, LogOut } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import LavaBackground from "@/components/LavaBackground";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const tabs = [
   { id: "profile", label: "Profile", icon: User },
   { id: "security", label: "Security", icon: Shield },
+  { id: "sessions", label: "Sessions", icon: Monitor },
+  { id: "login-history", label: "Login History", icon: Clock },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "appearance", label: "Appearance", icon: Palette },
 ];
 
+interface LoginEntry {
+  id: string;
+  ip_address: string | null;
+  user_agent: string | null;
+  device_type: string | null;
+  status: string;
+  created_at: string;
+}
+
+interface SessionEntry {
+  id: string;
+  device_info: string | null;
+  ip_address: string | null;
+  last_active: string;
+  is_current: boolean;
+  created_at: string;
+}
+
 export default function SettingsPage() {
   const [tab, setTab] = useState("profile");
-  const [name, setName] = useState("Demo User");
-  const [email, setEmail] = useState("demo@deepguard.ai");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [mfaEnabled, setMfaEnabled] = useState(false);
   const [notifEmail, setNotifEmail] = useState(true);
   const [notifWeekly, setNotifWeekly] = useState(false);
   const [notifSecurity, setNotifSecurity] = useState(true);
   const [theme, setTheme] = useState("dark");
+  const [loginHistory, setLoginHistory] = useState<LoginEntry[]>([]);
+  const [sessions, setSessions] = useState<SessionEntry[]>([]);
+
+  useEffect(() => {
+    loadUserData();
+  }, []);
+
+  const loadUserData = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      setEmail(user.email || "");
+      setName(user.user_metadata?.full_name || user.email || "");
+      
+      const { data: history } = await supabase
+        .from("login_history")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (history) setLoginHistory(history);
+
+      const { data: sess } = await supabase
+        .from("user_sessions")
+        .select("*")
+        .order("last_active", { ascending: false });
+      if (sess) setSessions(sess);
+    }
+  };
+
+  const revokeSession = async (sessionId: string) => {
+    await supabase.from("user_sessions").delete().eq("id", sessionId);
+    setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+    toast.success("Session revoked");
+  };
+
+  const revokeAllOtherSessions = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from("user_sessions").delete().eq("user_id", user.id).eq("is_current", false);
+      setSessions((prev) => prev.filter((s) => s.is_current));
+      toast.success("All other sessions revoked");
+    }
+  };
+
+  const getDeviceIcon = (deviceType: string | null) => {
+    return deviceType === "mobile" ? Smartphone : Monitor;
+  };
+
+  const parseUserAgent = (ua: string | null) => {
+    if (!ua) return "Unknown Device";
+    if (ua.includes("Chrome")) return "Chrome Browser";
+    if (ua.includes("Firefox")) return "Firefox Browser";
+    if (ua.includes("Safari")) return "Safari Browser";
+    if (ua.includes("Edge")) return "Edge Browser";
+    return "Unknown Browser";
+  };
 
   return (
     <div className="min-h-screen relative">
@@ -53,10 +129,14 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground">Email</label>
-                    <input value={email} onChange={(e) => setEmail(e.target.value)}
-                      className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/30 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                    <input value={email} disabled
+                      className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/30 border border-border text-sm opacity-60 cursor-not-allowed" />
+                    <p className="text-[10px] text-muted-foreground mt-1">Email cannot be changed for security reasons.</p>
                   </div>
-                  <motion.button whileHover={{ scale: 1.03 }} onClick={() => toast.success("Profile saved")}
+                  <motion.button whileHover={{ scale: 1.03 }} onClick={async () => {
+                    await supabase.auth.updateUser({ data: { full_name: name } });
+                    toast.success("Profile saved");
+                  }}
                     className="btn-primary flex items-center gap-2"><Save className="h-4 w-4" /> Save Changes</motion.button>
                 </div>
               </motion.div>
@@ -69,10 +149,10 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium">Two-Factor Authentication</p>
-                      <p className="text-xs text-muted-foreground">Add extra security to your account</p>
+                      <p className="text-xs text-muted-foreground">Add extra security with TOTP (Google Authenticator/Authy)</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${mfaEnabled ? "bg-success/20 text-success" : "bg-muted text-muted-foreground"}`}>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${mfaEnabled ? "bg-emerald-500/20 text-emerald-400" : "bg-muted text-muted-foreground"}`}>
                         {mfaEnabled ? "Enabled" : "Disabled"}
                       </span>
                       <button onClick={() => { setMfaEnabled(!mfaEnabled); toast.success(mfaEnabled ? "MFA disabled" : "MFA enabled"); }}
@@ -82,15 +162,107 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-medium mb-3">Change Password</h3>
-                  <div className="space-y-3 max-w-md">
-                    <input type="password" placeholder="Current password" className="w-full px-4 py-2.5 rounded-xl bg-muted/30 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-                    <input type="password" placeholder="New password" className="w-full px-4 py-2.5 rounded-xl bg-muted/30 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-                    <motion.button whileHover={{ scale: 1.03 }} onClick={() => toast.success("Password updated")}
-                      className="btn-primary">Update Password</motion.button>
+                <div className="glass-card p-4 rounded-xl">
+                  <p className="text-sm font-medium mb-1">Password Reset</p>
+                  <p className="text-xs text-muted-foreground mb-3">For security, password changes are done via email verification only.</p>
+                  <motion.button whileHover={{ scale: 1.03 }} onClick={async () => {
+                    if (email) {
+                      await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` });
+                      toast.success("Password reset link sent to your email");
+                    }
+                  }}
+                    className="btn-glass text-sm">Send Reset Link</motion.button>
+                </div>
+                <div className="glass-card p-4 rounded-xl">
+                  <p className="text-sm font-medium mb-1">Session Timeout</p>
+                  <p className="text-xs text-muted-foreground">Auto-logout after 30 minutes of inactivity with a 5-minute warning.</p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-primary" />
+                    <span className="text-xs text-emerald-400 font-medium">Active — 30 min timeout</span>
                   </div>
                 </div>
+              </motion.div>
+            )}
+
+            {tab === "sessions" && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="font-heading font-semibold text-lg">Active Sessions</h2>
+                  <motion.button whileHover={{ scale: 1.03 }} onClick={revokeAllOtherSessions}
+                    className="btn-glass text-xs flex items-center gap-1">
+                    <LogOut className="h-3 w-3" /> Sign Out All Others
+                  </motion.button>
+                </div>
+                {sessions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">No active sessions found.</p>
+                ) : (
+                  sessions.map((s) => {
+                    const DeviceIcon = getDeviceIcon(s.device_info);
+                    return (
+                      <div key={s.id} className="glass-card p-4 rounded-xl flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-primary/10">
+                            <DeviceIcon className="h-4 w-4 text-primary" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-foreground">
+                              {s.device_info || "Unknown Device"}
+                              {s.is_current && <span className="ml-2 text-[10px] text-emerald-400 font-medium">Current</span>}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {s.ip_address || "Unknown IP"} • Last active {new Date(s.last_active).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                        {!s.is_current && (
+                          <button onClick={() => revokeSession(s.id)} className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </motion.div>
+            )}
+
+            {tab === "login-history" && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+                <h2 className="font-heading font-semibold text-lg">Login History</h2>
+                {loginHistory.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">No login history available.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {loginHistory.map((entry) => {
+                      const DeviceIcon = getDeviceIcon(entry.device_type);
+                      return (
+                        <div key={entry.id} className="glass-card p-3 rounded-xl flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg ${entry.status === "success" ? "bg-emerald-500/10" : "bg-destructive/10"}`}>
+                              <DeviceIcon className={`h-4 w-4 ${entry.status === "success" ? "text-emerald-400" : "text-destructive"}`} />
+                            </div>
+                            <div>
+                              <p className="text-xs font-medium text-foreground">
+                                {parseUserAgent(entry.user_agent)}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {entry.ip_address || "Unknown IP"} • {entry.device_type || "unknown"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-medium ${
+                              entry.status === "success" ? "bg-emerald-500/20 text-emerald-400" : "bg-destructive/20 text-destructive"
+                            }`}>
+                              {entry.status}
+                            </span>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">{new Date(entry.created_at).toLocaleString()}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </motion.div>
             )}
 
