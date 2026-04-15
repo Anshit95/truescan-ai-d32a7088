@@ -1,12 +1,14 @@
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { Shield, Brain, BarChart3, Zap, Upload, Search, FileCheck, ArrowRight, Scan, Fingerprint, Eye, Play } from "lucide-react";
+import { Shield, Brain, BarChart3, Zap, Upload, Search, FileCheck, ArrowRight, Scan, Fingerprint, Eye, Play, AlertTriangle, Mic, Image, Lock, Wifi, FileWarning } from "lucide-react";
 import UploadZone from "@/components/UploadZone";
 import Navbar from "@/components/Navbar";
 import LavaBackground from "@/components/LavaBackground";
+import WatchDemoModal from "@/components/WatchDemoModal";
 import { useAnalysisStore } from "@/store/useAnalysisStore";
 import { analyzeImage } from "@/lib/analyzeImage";
+import { useState } from "react";
 
 const stats = [
   { label: "Accuracy", value: "99.2%" },
@@ -30,6 +32,15 @@ const steps = [
   { icon: FileCheck, title: "Results", description: "Get a detailed verdict with confidence scores" },
 ];
 
+const securityTips = [
+  { icon: Mic, title: "Audio Deepfakes Are Rising", description: "Voice cloning can replicate anyone in seconds. Always verify voice-based requests through a secondary channel." },
+  { icon: Image, title: "Reverse Image Search", description: "Before trusting any image, use reverse search to check if it's been altered or taken out of context." },
+  { icon: FileWarning, title: "EXIF Data Manipulation", description: "Metadata like GPS, camera model, and timestamps can be forged. Never rely on EXIF alone for verification." },
+  { icon: Lock, title: "Enable MFA Everywhere", description: "Multi-factor authentication blocks 99.9% of automated attacks. Use authenticator apps, not SMS." },
+  { icon: Wifi, title: "Public Wi-Fi Risks", description: "Never access sensitive accounts on public networks without a VPN. Attackers can intercept unencrypted traffic." },
+  { icon: AlertTriangle, title: "Social Engineering via AI", description: "AI-generated faces create fake profiles at scale. Verify identities before sharing sensitive information." },
+];
+
 const testimonials = [
   { name: "Sarah Chen", role: "CTO @ TechCorp", text: "DeepGuard AI has become an essential part of our content verification pipeline. The accuracy is remarkable." },
   { name: "Marcus Webb", role: "Head of Security @ MediaCo", text: "We've prevented dozens of misinformation campaigns thanks to DeepGuard's real-time detection capabilities." },
@@ -39,6 +50,7 @@ const testimonials = [
 export default function Index() {
   const navigate = useNavigate();
   const { setIsAnalyzing, setAnalysisStep, setCurrentAnalysis, addToHistory } = useAnalysisStore();
+  const [demoOpen, setDemoOpen] = useState(false);
 
   const handleFile = async (file: File) => {
     const imageUrl = URL.createObjectURL(file);
@@ -90,7 +102,7 @@ export default function Index() {
                 Start Analyzing <ArrowRight className="h-4 w-4" />
               </motion.button>
               <motion.button whileHover={{ scale: 1.03 }} className="btn-glass flex items-center gap-2"
-                onClick={() => toast.info("Demo video coming soon!")}>
+                onClick={() => setDemoOpen(true)}>
                 <Play className="h-4 w-4" /> Watch Demo
               </motion.button>
             </div>
@@ -158,6 +170,31 @@ export default function Index() {
         </div>
       </section>
 
+      {/* Security Awareness Tips */}
+      <section className="py-20 px-4 relative z-10">
+        <div className="container mx-auto">
+          <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center mb-14">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/30 bg-primary/5 text-primary text-xs font-medium mb-4">
+              <Shield className="h-3 w-3" /> Security Awareness
+            </div>
+            <h2 className="text-3xl font-heading font-bold mb-3">Cybersecurity Best Practices</h2>
+            <p className="text-muted-foreground">Stay informed. Stay protected. Here's what every user should know.</p>
+          </motion.div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {securityTips.map((tip, i) => (
+              <motion.div key={tip.title} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+                transition={{ delay: i * 0.08 }} className="glass-card-hover p-6 group">
+                <div className="p-3 rounded-xl bg-primary/10 w-fit mb-4 group-hover:bg-primary/20 transition-colors">
+                  <tip.icon className="h-5 w-5 text-primary" />
+                </div>
+                <h3 className="font-heading font-semibold text-sm mb-2 text-foreground">{tip.title}</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">{tip.description}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section className="py-20 px-4 relative z-10">
         <div className="container mx-auto">
           <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center mb-14">
@@ -187,6 +224,8 @@ export default function Index() {
           <p className="text-xs text-muted-foreground">© 2026 DeepGuard AI. All rights reserved.</p>
         </div>
       </footer>
+
+      <WatchDemoModal open={demoOpen} onClose={() => setDemoOpen(false)} />
     </div>
   );
 }

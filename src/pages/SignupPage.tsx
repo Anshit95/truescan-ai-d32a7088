@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Shield, Eye, EyeOff, ArrowLeft, Mail, Lock, User } from "lucide-react";
 import LavaBackground from "@/components/LavaBackground";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 function getStrength(p: string) {
@@ -15,7 +16,7 @@ function getStrength(p: string) {
 }
 
 const strengthLabels = ["", "Weak", "Fair", "Strong", "Very Strong"];
-const strengthColors = ["", "bg-red-500", "bg-amber-500", "bg-emerald-400", "bg-emerald-500"];
+const strengthColors = ["", "bg-destructive", "bg-amber-500", "bg-emerald-400", "bg-emerald-500"];
 
 export default function SignupPage() {
   const navigate = useNavigate();
@@ -35,10 +36,24 @@ export default function SignupPage() {
     if (password !== confirm) { toast.error("Passwords don't match"); return; }
     if (!terms) { toast.error("Please accept the terms"); return; }
     if (strength < 2) { toast.error("Password is too weak"); return; }
+    
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: name },
+        emailRedirectTo: window.location.origin,
+      },
+    });
     setLoading(false);
-    toast.success("Account created! Check your email for verification code.");
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    toast.success("Check your email for the verification link!");
     navigate("/verify-otp", { state: { email } });
   };
 
@@ -111,7 +126,7 @@ export default function SignupPage() {
                           initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} />
                       ))}
                     </div>
-                    <span className={`text-[10px] font-medium ${strength <= 1 ? "text-red-400" : strength === 2 ? "text-amber-400" : "text-emerald-400"}`}>
+                    <span className={`text-[10px] font-medium ${strength <= 1 ? "text-destructive" : strength === 2 ? "text-amber-400" : "text-emerald-400"}`}>
                       {strengthLabels[strength]}
                     </span>
                   </div>
