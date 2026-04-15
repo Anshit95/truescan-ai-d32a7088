@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Shield, Eye, EyeOff, ArrowLeft, Mail, Lock, Github } from "lucide-react";
+import { Shield, Eye, EyeOff, ArrowLeft, Mail, Lock, Github, AlertTriangle } from "lucide-react";
 import LavaBackground from "@/components/LavaBackground";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export default function LoginPage() {
@@ -12,15 +13,61 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [lockoutInfo, setLockoutInfo] = useState<{ locked: boolean; locked_until?: string; attempts: number } | null>(null);
+
+  const checkLockout = async (email: string) => {
+    const { data } = await supabase.rpc("check_login_lockout", { p_email: email });
+    return data as { locked: boolean; locked_until?: string; attempts: number } | null;
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) { toast.error("Please fill all fields"); return; }
+    
+    // Check lockout
+    const lockout = await checkLockout(email);
+    if (lockout?.locked) {
+      const until = lockout.locked_until ? new Date(lockout.locked_until).toLocaleTimeString() : "soon";
+      setLockoutInfo(lockout);
+      toast.error(`Account locked. Try again after ${until}`);
+      return;
+    }
+
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
+
+    if (error) {
+      // Record failed attempt
+      const { data: result } = await supabase.rpc("record_failed_login", { p_email: email });
+      const failResult = result as { locked: boolean; locked_until?: string; attempts: number } | null;
+      setLockoutInfo(failResult);
+      
+      if (failResult?.locked) {
+        toast.error("Too many failed attempts. Account locked for 15 minutes.");
+      } else {
+        const attemptsLeft = 3 - (failResult?.attempts || 0);
+        toast.error(`Invalid credentials. ${attemptsLeft > 0 ? `${attemptsLeft} attempts remaining.` : ""}`);
+      }
+      return;
+    }
+
+    // Clear failed attempts on success
+    await supabase.rpc("clear_failed_logins", { p_email: email });
+
+    // Record login history
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from("login_history").insert({
+        user_id: user.id,
+        user_agent: navigator.userAgent,
+        device_type: /Mobile/i.test(navigator.userAgent) ? "mobile" : "desktop",
+        status: "success",
+      });
+    }
+
     toast.success("Logged in successfully!");
-    navigate("/setup-mfa");
+    navigate("/dashboard");
   };
 
   const handleOAuth = (provider: string) => {
@@ -62,6 +109,20 @@ export default function LoginPage() {
             <h1 className="text-2xl font-heading font-bold mb-1">Welcome Back</h1>
             <p className="text-sm text-muted-foreground mb-6">Sign in to your account</p>
 
+            {lockoutInfo?.locked && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-4 p-3 rounded-xl border flex items-center gap-2"
+                style={{ background: "rgba(239,68,68,0.1)", borderColor: "rgba(239,68,68,0.3)" }}
+              >
+                <AlertTriangle className="h-4 w-4 text-red-400 shrink-0" />
+                <p className="text-xs text-red-400">
+                  Account locked until {lockoutInfo.locked_until ? new Date(lockoutInfo.locked_until).toLocaleTimeString() : "15 minutes"}. Too many failed attempts.
+                </p>
+              </motion.div>
+            )}
+
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Email</label>
@@ -91,7 +152,7 @@ export default function LoginPage() {
                 <Link to="/forgot-password" className="text-xs text-primary hover:underline">Forgot password?</Link>
               </div>
 
-              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} type="submit" disabled={loading}
+              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} type="submit" disabled={loading || lockoutInfo?.locked}
                 className="w-full btn-primary py-3 disabled:opacity-50">
                 {loading ? "Signing in..." : "Sign In"}
               </motion.button>
