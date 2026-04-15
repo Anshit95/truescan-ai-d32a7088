@@ -136,7 +136,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      check_login_lockout: { Args: { p_email: string }; Returns: Json }
+      clear_failed_logins: { Args: { p_email: string }; Returns: undefined }
+      record_failed_login: { Args: { p_email: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never
