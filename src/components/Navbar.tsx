@@ -1,31 +1,50 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
-import { Shield, Menu, X, Sun, Moon, Bell, User, Settings, LogOut, ArrowLeft } from "lucide-react";
-import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Shield, Menu, Sun, Moon, Bell, User, Settings, LogOut, Home, Scan, BarChart3, Clock, Info } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { useAnalysisStore } from "@/store/useAnalysisStore";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const navItems = [
-  { label: "Home", path: "/" },
-  { label: "Analyze", path: "/analyze" },
-  { label: "Dashboard", path: "/dashboard" },
-  { label: "History", path: "/history" },
-  { label: "About", path: "/about" },
+  { label: "Home", path: "/", icon: Home },
+  { label: "Analyze", path: "/analyze", icon: Scan },
+  { label: "Dashboard", path: "/dashboard", icon: BarChart3 },
+  { label: "History", path: "/history", icon: Clock },
+  { label: "About", path: "/about", icon: Info },
 ];
 
 export default function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [isDark, setIsDark] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const { history } = useAnalysisStore();
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const recentNotifs = history.slice(0, 3);
 
   useEffect(() => {
     document.documentElement.classList.toggle("light", !isDark);
   }, [isDark]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    toast.success("Signed out");
+    navigate("/login");
+  };
 
   return (
     <motion.nav
@@ -40,39 +59,84 @@ export default function Navbar() {
       }}
     >
       <div className="container mx-auto flex items-center justify-between h-16 px-4">
-        <Link to="/" className="flex items-center gap-2 group">
-          <div className="p-1.5 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
-            <Shield className="h-5 w-5 text-primary" />
-          </div>
-          <span className="font-heading font-bold text-lg">
-            DeepGuard<span className="text-primary">AI</span>
-          </span>
-        </Link>
+        {/* Left: Hamburger + Logo */}
+        <div className="flex items-center gap-3">
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              onMouseEnter={() => setMenuOpen(true)}
+              className="p-2 rounded-lg hover:bg-primary/10 transition-colors text-muted-foreground hover:text-foreground"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
 
-        <div className="hidden md:flex items-center gap-1">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`relative px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {item.label}
-                {isActive && (
-                  <motion.div
-                    layoutId="nav-active"
-                    className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full bg-primary"
-                    style={{ boxShadow: "0 0 8px 2px hsl(var(--primary) / 0.4)" }}
-                  />
-                )}
-              </Link>
-            );
-          })}
+            <AnimatePresence>
+              {menuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -5, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -5, scale: 0.95 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute left-0 top-full mt-2 w-52 rounded-xl overflow-hidden shadow-xl"
+                  style={{
+                    background: "rgba(15, 8, 4, 0.95)",
+                    backdropFilter: "blur(20px)",
+                    border: "1px solid rgba(255, 120, 50, 0.15)",
+                  }}
+                  onMouseLeave={() => setMenuOpen(false)}
+                >
+                  <div className="p-2 space-y-0.5">
+                    {navItems.map((item) => {
+                      const isActive = location.pathname === item.path;
+                      return (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          onClick={() => setMenuOpen(false)}
+                          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all hover:scale-[1.02] ${
+                            isActive
+                              ? "text-primary bg-primary/10 border border-primary/20"
+                              : "text-muted-foreground hover:text-foreground hover:bg-primary/5"
+                          }`}
+                        >
+                          <item.icon className="h-4 w-4" />
+                          {item.label}
+                          {isActive && (
+                            <motion.div
+                              layoutId="nav-dot"
+                              className="ml-auto w-1.5 h-1.5 rounded-full bg-primary"
+                              style={{ boxShadow: "0 0 6px 2px hsl(var(--primary) / 0.5)" }}
+                            />
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                  <div className="border-t border-primary/10 p-2">
+                    <Link
+                      to="/settings"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-primary/5 transition-all"
+                    >
+                      <Settings className="h-4 w-4" /> Settings
+                    </Link>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <Link to="/" className="flex items-center gap-2 group">
+            <div className="p-1.5 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+              <Shield className="h-5 w-5 text-primary" />
+            </div>
+            <span className="font-heading font-bold text-lg">
+              DeepGuard<span className="text-primary">AI</span>
+            </span>
+          </Link>
         </div>
 
+        {/* Right side icons */}
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsDark(!isDark)}
@@ -98,7 +162,12 @@ export default function Navbar() {
               <motion.div
                 initial={{ opacity: 0, y: -5 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="absolute right-0 top-full mt-2 w-72 glass-card rounded-xl overflow-hidden shadow-xl"
+                className="absolute right-0 top-full mt-2 w-72 rounded-xl overflow-hidden shadow-xl"
+                style={{
+                  background: "rgba(15, 8, 4, 0.95)",
+                  backdropFilter: "blur(20px)",
+                  border: "1px solid rgba(255, 120, 50, 0.15)",
+                }}
               >
                 <div className="p-3 border-b border-primary/10 flex justify-between items-center">
                   <span className="text-xs font-semibold text-foreground">Notifications</span>
@@ -132,52 +201,24 @@ export default function Navbar() {
               <motion.div
                 initial={{ opacity: 0, y: -5 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="absolute right-0 top-full mt-2 w-48 glass-card rounded-xl overflow-hidden shadow-xl"
+                className="absolute right-0 top-full mt-2 w-48 rounded-xl overflow-hidden shadow-xl"
+                style={{
+                  background: "rgba(15, 8, 4, 0.95)",
+                  backdropFilter: "blur(20px)",
+                  border: "1px solid rgba(255, 120, 50, 0.15)",
+                }}
               >
                 <Link to="/settings" onClick={() => setProfileOpen(false)} className="flex items-center gap-2 px-4 py-3 text-sm hover:bg-primary/5 transition-colors text-foreground">
                   <Settings className="h-4 w-4 text-muted-foreground" /> Settings
                 </Link>
-                <Link to="/login" onClick={() => setProfileOpen(false)} className="flex items-center gap-2 px-4 py-3 text-sm hover:bg-primary/5 transition-colors text-foreground border-t border-primary/10">
+                <button onClick={() => { setProfileOpen(false); handleSignOut(); }} className="flex items-center gap-2 px-4 py-3 text-sm hover:bg-primary/5 transition-colors text-foreground border-t border-primary/10 w-full text-left">
                   <LogOut className="h-4 w-4 text-muted-foreground" /> Sign Out
-                </Link>
+                </button>
               </motion.div>
             )}
           </div>
-
-          <button
-            onClick={() => setMobileOpen(!mobileOpen)}
-            className="md:hidden p-2 rounded-lg hover:bg-primary/10 transition-colors"
-          >
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
         </div>
       </div>
-
-      {mobileOpen && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          className="md:hidden"
-          style={{
-            background: "rgba(10, 5, 3, 0.95)",
-            backdropFilter: "blur(20px)",
-            borderTop: "1px solid rgba(255, 120, 50, 0.1)",
-          }}
-        >
-          {navItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              onClick={() => setMobileOpen(false)}
-              className={`block px-4 py-3 text-sm font-medium transition-colors ${
-                location.pathname === item.path ? "text-primary bg-primary/5" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </motion.div>
-      )}
     </motion.nav>
   );
 }
