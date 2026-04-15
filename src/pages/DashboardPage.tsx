@@ -4,6 +4,7 @@ import { useAnalysisStore, Verdict, AnalysisResult } from "@/store/useAnalysisSt
 import Navbar from "@/components/Navbar";
 import LavaBackground from "@/components/LavaBackground";
 import UploadZone from "@/components/UploadZone";
+import ThreatIntelWidget from "@/components/ThreatIntelWidget";
 import { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Shield, Bot, Scissors, BarChart3, TrendingUp, Calendar, X } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -176,6 +177,9 @@ export default function DashboardPage() {
                 </div>
               </>
             )}
+
+            {/* Threat Intelligence Widget */}
+            <ThreatIntelWidget />
           </div>
 
           {/* Quick Scan sidebar */}
