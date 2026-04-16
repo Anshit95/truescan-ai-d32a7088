@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import SessionTimeoutWarning from "@/components/SessionTimeoutWarning";
+import AiAssistant from "@/components/AiAssistant";
 import Index from "./pages/Index";
 import AnalyzePage from "./pages/AnalyzePage";
 import DashboardPage from "./pages/DashboardPage";
@@ -16,6 +17,7 @@ import VerifyMfaPage from "./pages/VerifyMfaPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import SettingsPage from "./pages/SettingsPage";
+import CyberHubPage from "./pages/CyberHubPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,8 +42,10 @@ const App = () => (
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/cyber" element={<CyberHubPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        <AiAssistant />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

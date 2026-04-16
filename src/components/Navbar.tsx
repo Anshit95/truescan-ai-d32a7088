@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Shield, Menu, Sun, Moon, Bell, User, Settings, LogOut, Home, Scan, BarChart3, Clock, Info } from "lucide-react";
+import { Shield, Menu, Sun, Moon, Bell, Settings, LogOut, Home, Scan, BarChart3, Clock, Info, ShieldCheck } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useAnalysisStore } from "@/store/useAnalysisStore";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +11,7 @@ const navItems = [
   { label: "Analyze", path: "/analyze", icon: Scan },
   { label: "Dashboard", path: "/dashboard", icon: BarChart3 },
   { label: "History", path: "/history", icon: Clock },
+  { label: "Cyber Hub", path: "/cyber", icon: ShieldCheck },
   { label: "About", path: "/about", icon: Info },
 ];
 
@@ -59,7 +60,6 @@ export default function Navbar() {
       }}
     >
       <div className="container mx-auto flex items-center justify-between h-16 px-4">
-        {/* Left: Hamburger + Logo */}
         <div className="flex items-center gap-3">
           <div className="relative" ref={menuRef}>
             <button
@@ -136,7 +136,6 @@ export default function Navbar() {
           </Link>
         </div>
 
-        {/* Right side icons */}
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsDark(!isDark)}
@@ -145,7 +144,6 @@ export default function Navbar() {
             {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
 
-          {/* Notifications */}
           <div className="relative">
             <button
               onClick={() => { setNotifOpen(!notifOpen); setProfileOpen(false); }}
@@ -189,7 +187,6 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Profile */}
           <div className="relative">
             <button
               onClick={() => { setProfileOpen(!profileOpen); setNotifOpen(false); }}
