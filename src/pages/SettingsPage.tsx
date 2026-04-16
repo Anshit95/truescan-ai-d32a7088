@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { User, Shield, Bell, Palette, Save, Clock, Monitor, Smartphone, Trash2, LogOut } from "lucide-react";
+import { User, Shield, Bell, Palette, Save, Clock, Monitor, Smartphone, Trash2, LogOut, Phone, Building2, Briefcase, Globe, Mail } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import LavaBackground from "@/components/LavaBackground";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,7 +37,12 @@ export default function SettingsPage() {
   const [tab, setTab] = useState("profile");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [mfaEnabled, setMfaEnabled] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [organization, setOrganization] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
+  const [bio, setBio] = useState("");
+  const [country, setCountry] = useState("");
+  const [recoveryEmail, setRecoveryEmail] = useState("");
   const [notifEmail, setNotifEmail] = useState(true);
   const [notifWeekly, setNotifWeekly] = useState(false);
   const [notifSecurity, setNotifSecurity] = useState(true);
@@ -55,6 +60,22 @@ export default function SettingsPage() {
       setEmail(user.email || "");
       setName(user.user_metadata?.full_name || user.email || "");
       
+      // Load profile data
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+      if (profile) {
+        setName(profile.display_name || user.user_metadata?.full_name || "");
+        setPhone((profile as any).phone || "");
+        setOrganization((profile as any).organization || "");
+        setJobTitle((profile as any).job_title || "");
+        setBio((profile as any).bio || "");
+        setCountry((profile as any).country || "");
+        setRecoveryEmail((profile as any).recovery_email || "");
+      }
+
       const { data: history } = await supabase
         .from("login_history")
         .select("*")
@@ -68,6 +89,22 @@ export default function SettingsPage() {
         .order("last_active", { ascending: false });
       if (sess) setSessions(sess);
     }
+  };
+
+  const saveProfile = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.auth.updateUser({ data: { full_name: name } });
+    await supabase.from("profiles").update({
+      display_name: name,
+      phone,
+      organization,
+      job_title: jobTitle,
+      bio,
+      country,
+      recovery_email: recoveryEmail,
+    } as any).eq("user_id", user.id);
+    toast.success("Profile saved");
   };
 
   const revokeSession = async (sessionId: string) => {
@@ -121,22 +158,53 @@ export default function SettingsPage() {
             {tab === "profile" && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
                 <h2 className="font-heading font-semibold text-lg">Profile</h2>
-                <div className="space-y-3 max-w-md">
+                <div className="space-y-3 max-w-lg">
                   <div>
-                    <label className="text-xs text-muted-foreground">Full Name</label>
-                    <input value={name} onChange={(e) => setName(e.target.value)}
-                      className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/30 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground">Email</label>
+                    <label className="text-xs text-muted-foreground flex items-center gap-1"><Mail className="h-3 w-3" /> Email</label>
                     <input value={email} disabled
                       className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/30 border border-border text-sm opacity-60 cursor-not-allowed" />
                     <p className="text-[10px] text-muted-foreground mt-1">Email cannot be changed for security reasons.</p>
                   </div>
-                  <motion.button whileHover={{ scale: 1.03 }} onClick={async () => {
-                    await supabase.auth.updateUser({ data: { full_name: name } });
-                    toast.success("Profile saved");
-                  }}
+                  <div>
+                    <label className="text-xs text-muted-foreground flex items-center gap-1"><User className="h-3 w-3" /> Full Name</label>
+                    <input value={name} onChange={(e) => setName(e.target.value)}
+                      className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/30 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" /> Phone</label>
+                      <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 234 567 890"
+                        className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/30 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground flex items-center gap-1"><Globe className="h-3 w-3" /> Country</label>
+                      <input value={country} onChange={(e) => setCountry(e.target.value)} placeholder="United States"
+                        className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/30 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-muted-foreground flex items-center gap-1"><Building2 className="h-3 w-3" /> Organization</label>
+                      <input value={organization} onChange={(e) => setOrganization(e.target.value)} placeholder="Company name"
+                        className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/30 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground flex items-center gap-1"><Briefcase className="h-3 w-3" /> Job Title</label>
+                      <input value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} placeholder="Security Analyst"
+                        className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/30 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground flex items-center gap-1"><Mail className="h-3 w-3" /> Recovery Email</label>
+                    <input value={recoveryEmail} onChange={(e) => setRecoveryEmail(e.target.value)} placeholder="backup@email.com"
+                      className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/30 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground">Bio</label>
+                    <textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="Tell us about yourself..." rows={3}
+                      className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/30 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" />
+                  </div>
+                  <motion.button whileHover={{ scale: 1.03 }} onClick={saveProfile}
                     className="btn-primary flex items-center gap-2"><Save className="h-4 w-4" /> Save Changes</motion.button>
                 </div>
               </motion.div>
@@ -149,17 +217,11 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium">Two-Factor Authentication</p>
-                      <p className="text-xs text-muted-foreground">Add extra security with TOTP (Google Authenticator/Authy)</p>
+                      <p className="text-xs text-muted-foreground">TOTP via Google Authenticator/Authy — required for all accounts</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${mfaEnabled ? "bg-emerald-500/20 text-emerald-400" : "bg-muted text-muted-foreground"}`}>
-                        {mfaEnabled ? "Enabled" : "Disabled"}
-                      </span>
-                      <button onClick={() => { setMfaEnabled(!mfaEnabled); toast.success(mfaEnabled ? "MFA disabled" : "MFA enabled"); }}
-                        className={`w-10 h-5 rounded-full transition-colors relative ${mfaEnabled ? "bg-primary" : "bg-muted"}`}>
-                        <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-foreground transition-all ${mfaEnabled ? "left-5" : "left-0.5"}`} />
-                      </button>
-                    </div>
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      Always Enabled
+                    </span>
                   </div>
                 </div>
                 <div className="glass-card p-4 rounded-xl">
@@ -242,20 +304,14 @@ export default function SettingsPage() {
                               <DeviceIcon className={`h-4 w-4 ${entry.status === "success" ? "text-emerald-400" : "text-destructive"}`} />
                             </div>
                             <div>
-                              <p className="text-xs font-medium text-foreground">
-                                {parseUserAgent(entry.user_agent)}
-                              </p>
-                              <p className="text-[10px] text-muted-foreground">
-                                {entry.ip_address || "Unknown IP"} • {entry.device_type || "unknown"}
-                              </p>
+                              <p className="text-xs font-medium text-foreground">{parseUserAgent(entry.user_agent)}</p>
+                              <p className="text-[10px] text-muted-foreground">{entry.ip_address || "Unknown IP"} • {entry.device_type || "unknown"}</p>
                             </div>
                           </div>
                           <div className="text-right">
                             <span className={`px-2 py-0.5 rounded-full text-[9px] font-medium ${
                               entry.status === "success" ? "bg-emerald-500/20 text-emerald-400" : "bg-destructive/20 text-destructive"
-                            }`}>
-                              {entry.status}
-                            </span>
+                            }`}>{entry.status}</span>
                             <p className="text-[10px] text-muted-foreground mt-0.5">{new Date(entry.created_at).toLocaleString()}</p>
                           </div>
                         </div>

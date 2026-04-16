@@ -64,6 +64,20 @@ export default function LoginPage() {
         device_type: /Mobile/i.test(navigator.userAgent) ? "mobile" : "desktop",
         status: "success",
       });
+
+      // Check MFA status - if no TOTP factors, redirect to setup
+      const { data: factors } = await supabase.auth.mfa.listFactors();
+      if (!factors?.totp || factors.totp.length === 0) {
+        toast.success("Please set up MFA to continue");
+        navigate("/setup-mfa");
+        return;
+      }
+      // If TOTP exists but not verified in this session, go to verify
+      const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aal?.currentLevel !== aal?.nextLevel) {
+        navigate("/verify-mfa");
+        return;
+      }
     }
 
     toast.success("Logged in successfully!");
